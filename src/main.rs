@@ -103,6 +103,6 @@ fn main() -> std::io::Result<()> {
     .bind(format!("{}:{}",host,port))?
     .start();
 
-    println!("Starting http server: http://0.0.0.0:8080");
+    println!("Starting http server: http://{}:{}",host,port);
     sys.run()
 }
