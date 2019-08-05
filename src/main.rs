@@ -21,6 +21,10 @@ struct ResolvedIPResponse<'a> {
     pub country_name: &'a str,
     pub city_name: &'a str,
 }
+/// ```shell
+/// wget https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz
+/// tar xf GeoLite2-City.tar.gz -C /root
+///```
 fn index_async(req: HttpRequest) -> impl Future<Item = HttpResponse, Error = Error> {
     println!("{:?}", req);
     let language = String::from("zh-CN");
@@ -31,10 +35,7 @@ fn index_async(req: HttpRequest) -> impl Future<Item = HttpResponse, Error = Err
         .parse()
         .expect("Unable to parse socket address");
 
-    /// ```shell
-    /// wget https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz
-    /// tar xf GeoLite2-City.tar.gz -C /root
-    ///```
+
     let db = Arc::new(Reader::open_mmap(db_file_path()).unwrap());
 
     let lookup: Result<City, MaxMindDBError> = db.lookup(server.ip());
@@ -91,13 +92,15 @@ fn db_file_path() -> String {
 }
 
 fn main() -> std::io::Result<()> {
-    let sys = actix_rt::System::new("basic-example");
+    let host = env::var("HOST").unwrap_or_else(|_| String::from("0.0.0.0"));
+    let port = env::var("PORT").unwrap_or_else(|_| String::from("80"));
+    let sys = actix_rt::System::new("ip-info");
     HttpServer::new(|| {
         App::new()
             .service(web::resource("/ip").route(web::get().to_async(index_async)))
             .default_service(web::resource("").route(web::get().to(p404)))
     })
-    .bind("0.0.0.0:8080")?
+    .bind(format!("{}:{}",host,port))?
     .start();
 
     println!("Starting http server: http://0.0.0.0:8080");
