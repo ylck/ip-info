@@ -1,4 +1,4 @@
-use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer, Result};
+use actix_web::{http, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result};
 use futures::{future::ok, Future};
 
 use std::net::SocketAddr;
@@ -35,7 +35,6 @@ fn index_async(req: HttpRequest) -> impl Future<Item = HttpResponse, Error = Err
         .parse()
         .expect("Unable to parse socket address");
 
-
     let db = Arc::new(Reader::open_mmap(db_file_path()).unwrap());
 
     let lookup: Result<City, MaxMindDBError> = db.lookup(server.ip());
@@ -69,7 +68,9 @@ fn index_async(req: HttpRequest) -> impl Future<Item = HttpResponse, Error = Err
     .unwrap();
     println!("{:?}", geoip);
     ok(HttpResponse::Ok()
-        .content_type("text/html")
+        .content_type("text/json")
+        .status(http::StatusCode::from_u16(200).unwrap())
+        .header("content-type", "Content-Type: application/json")
         .body(format!("{}\t{:?}\n", server.ip(), geoip)))
 }
 
@@ -88,7 +89,6 @@ fn db_file_path() -> String {
     //    if args.len() > 1 {
     //        return args[1].to_string();
     //    }
-    //    panic!("You must specify the db path, either as a command line argument or as GEOIP_RS_DB_PATH env var");
 }
 
 fn main() -> std::io::Result<()> {
@@ -100,9 +100,10 @@ fn main() -> std::io::Result<()> {
             .service(web::resource("/ip").route(web::get().to_async(index_async)))
             .default_service(web::resource("").route(web::get().to(p404)))
     })
-    .bind(format!("{}:{}",host,port))?
+    .bind(format!("{}:{}", host, port))?
+    .shutdown_timeout(15)
     .start();
 
-    println!("Starting http server: http://{}:{}",host,port);
+    println!("Starting http server: http://{}:{}", host, port);
     sys.run()
 }
